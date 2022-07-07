@@ -18,7 +18,8 @@ mysql.createConnection({multipleStatements: true});
 app.post("/api/AddUser", (req, res) => {
     const {email,mdp,prenom,nom,ville,adresse} = req.body.data;
     var admin =false;
-    if(req.body.data.admin === 'on')  admin = true;
+    if(req.body.data.admin && req.body.data.admin === 'on') {
+    }
     db.query(
       "INSERT INTO user (UserEmail, UserPassword, UserFirstName, UserLastName, UserCity, UserAddress,admin) VALUES (?,?,?,?,?,?,?)",
       [email, mdp, prenom, nom, ville, adresse, admin],
@@ -32,7 +33,6 @@ app.post("/api/AddUser", (req, res) => {
             if (err) {
               console.log(err);
             } else {
-              console.log(result);
               res.send(result);
             }
           });
@@ -42,7 +42,6 @@ app.post("/api/AddUser", (req, res) => {
 })
 
 app.get("/api/VerifyUser", (req, res) => {
-  console.log(req);
   const email = req.query.data['email'];
   const mdp = req.query.data['mdp'];
   db.query("SELECT UserID, UserFirstName, admin FROM user where UserEmail=? and UserPassword=?",
@@ -51,14 +50,61 @@ app.get("/api/VerifyUser", (req, res) => {
     if (err) {
       console.log(err);
     } else {
-      console.log(result);
       res.send(result);
     }
   });
 });
 
-app.post("/api/insertBien", (req, res) => {
-  console.log(req.body);
+app.post("/api/addOrder", (req, res) => {
+  const cart = req.body.data.objects[0];
+  const userID = req.body.data.objects[1];
+  const amount = req.body.data.objects[2];
+  const totalQty = req.body.data.objects[3];
+  let address = "";
+  var city = "";
+  db.query("SELECT * FROM user where UserID=?",
+  [userID], 
+  (err, result) => {
+    if (err) {
+      console.log(err);
+    } else {
+      address = result[0].UserAddress;
+      city = result[0].UserCity;
+      db.query("INSERT INTO orders (OrderUserID, OrderAmount, OrderShipAddress, OrderCity, DetailQuantity, OrderState) VALUES (?,?,?,?,?,'Commande passée')",
+      [userID, amount, address, city, totalQty], 
+      (err, result) => {
+      if (err) {
+        console.log(err);
+      } else {
+        for(let product of cart){
+          db.query("INSERT INTO orderdetails (DetailOrderID,DetailProductID,DetailName,DetailPrice,DetailQuantity) VALUES (?,?,?,?,?)",
+          [result.insertId, product.ProductID, product.ProductName, product.ProductPrice, product.qty], 
+          (err, result) => {
+          if (err) {
+            console.log(err);
+          } else {
+            res.send(result);
+          }
+        })
+          db.query("UPDATE products set ProductStock = ProductStock - ? where ProductID = ?;",
+          [product.qty, product.ProductID], 
+          (err, result) => {
+          if (err) {
+            console.log(err);
+          } else {
+            console.log(result);
+          }
+        })
+      }
+      }
+      });
+    }
+  });
+  
+});
+
+
+app.post("/api/insertProduit", (req, res) => {
   const nom = req.body.data.nom;
   const prix = req.body.data.prix;
   const stock = req.body.data.stock;
@@ -80,6 +126,27 @@ app.post("/api/insertBien", (req, res) => {
 
 app.get("/api/getProduct", (req, res) => {
   db.query("SELECT * FROM Products", (err, result) => {
+    if (err) {
+      console.log(err);
+    } else {
+      res.send(result);
+    }
+  });
+});
+
+app.get("/api/getUsers", (req, res) => {
+  db.query("SELECT * FROM user", (err, result) => {
+    if (err) {
+      console.log(err);
+    } else {
+      res.send(result);
+    }
+  });
+});
+
+app.post("/api/deleteUser", (req, res) => {
+  const UserID = req.body.data;
+  db.query("DELETE FROM user where UserID = ?",[UserID], (err, result) => {
     if (err) {
       console.log(err);
     } else {
